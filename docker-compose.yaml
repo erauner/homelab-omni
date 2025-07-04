@@ -79,14 +79,14 @@ services:
       - --entryPoints.mapi.address=:8090
       - --entryPoints.kproxy.address=:8100
     ports:
-      - 80:80
-      - 443:443
-      - 8090:8090
-      - 8100:8100
+      - "8080:80"     # plain http (optional if you redirect everything)
+      - "8443:443"    # https for all your routers
+      - "8090:8090"   # Omni machine-API
+      - "8100:8100"   # Omni kube-proxy
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./certs:/certs:ro"
-      - "./traefik/logs/traefik.log:/var/log/traefik.log"
+      - "./traefik/logs:/var/log"
     labels:
       # Dashboard
       - "traefik.enable=true"

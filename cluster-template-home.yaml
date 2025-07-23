@@ -12,6 +12,10 @@ patches:
     file: ./patches/cluster.yaml   # relative path because repo will be synced
   - name: cilium-install-home
     file: ./patches/cilium-install-home.yaml
+  - name: longhorn-install-home
+    file: ./patches/longhorn-install-home.yaml
+  - name: longhorn-configure-home
+    file: ./patches/longhorn-configure-home.yaml
   # Add cert patches here later if you decide to keep them
 
 ---

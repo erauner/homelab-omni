@@ -1,0 +1,199 @@
+cluster:
+  inlineManifests:
+  - name: longhorn-configure-home
+    contents: |
+      ########################################################
+      # Longhorn Configuration Settings
+      # Apply after Longhorn installation is complete
+      ########################################################
+      
+      ########################################################
+      # 1. Default Settings ConfigMap
+      ########################################################
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: longhorn-default-setting
+        namespace: longhorn-system
+      data:
+        # Replica settings
+        default-replica-count: "2"  # Default number of replicas for volumes
+        replica-soft-anti-affinity: "true"  # Try to avoid placing replicas on same node
+        replica-auto-balance: "best-effort"  # Automatically balance replicas across nodes
+        
+        # Data locality settings
+        default-data-locality: "best-effort"  # Keep data on same node as workload when possible
+        
+        # Storage settings
+        storage-over-provisioning-percentage: "100"  # Allow 100% over-provisioning
+        storage-minimal-available-percentage: "10"  # Minimum 10% free space on nodes
+        
+        # Backup settings
+        backup-target: ""  # Configure if using external backup target (S3, NFS, etc)
+        backup-target-credential-secret: ""
+        
+        # System settings
+        priority-class: "system-node-critical"  # High priority for Longhorn components
+        auto-salvage: "true"  # Automatically salvage corrupted volumes
+        auto-delete-pod-when-volume-detached-unexpectedly: "true"
+        
+        # Performance settings
+        guaranteed-engine-manager-cpu: "10"  # 10% CPU guaranteed for engine manager
+        guaranteed-replica-manager-cpu: "10"  # 10% CPU guaranteed for replica manager
+        
+        # Monitoring
+        create-default-disk-labeled-nodes: "true"  # Auto create disks on labeled nodes
+        allow-volume-creation-with-degraded-availability: "true"  # Allow degraded volume creation
+        
+        # Upgrade settings
+        concurrent-automatic-engine-upgrade-per-node-limit: "1"
+        engine-replica-timeout: "8"  # 8 seconds timeout
+        
+      ########################################################
+      # 2. StorageClass Configuration
+      ########################################################
+      ---
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: longhorn
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"  # Make Longhorn default
+      provisioner: driver.longhorn.io
+      allowVolumeExpansion: true
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+      parameters:
+        numberOfReplicas: "2"
+        staleReplicaTimeout: "2880"  # 48 hours in minutes
+        fromBackup: ""
+        fsType: "ext4"
+        dataLocality: "best-effort"
+      
+      ########################################################
+      # 3. Optimized StorageClass for single-replica volumes
+      ########################################################
+      ---
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: longhorn-single-replica
+      provisioner: driver.longhorn.io
+      allowVolumeExpansion: true
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+      parameters:
+        numberOfReplicas: "1"
+        staleReplicaTimeout: "2880"
+        fromBackup: ""
+        fsType: "ext4"
+        dataLocality: "strict-local"  # Keep data on same node as pod
+      
+      ########################################################
+      # 4. Configure node disk paths (if custom paths needed)
+      ########################################################
+      ---
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: longhorn-configure-settings
+        namespace: longhorn-system
+      spec:
+        backoffLimit: 5
+        template:
+          metadata:
+            labels:
+              app: longhorn-configure
+          spec:
+            serviceAccountName: longhorn-install
+            restartPolicy: OnFailure
+            containers:
+            - name: configure
+              image: bitnami/kubectl:1.31
+              command:
+              - /bin/bash
+              - -c
+              - |
+                set -e
+                echo "Waiting for Longhorn to be fully ready..."
+                
+                # Wait for all Longhorn pods to be ready
+                kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-manager --timeout=300s
+                kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-driver-deployer --timeout=300s
+                
+                # Wait for CSI plugin pods (they take longer to appear)
+                echo "Waiting for CSI plugin pods to be created..."
+                until kubectl -n longhorn-system get pods -l app=longhorn-csi-plugin 2>/dev/null | grep -q longhorn-csi-plugin; do
+                  echo "CSI plugin pods not found yet, waiting..."
+                  sleep 10
+                done
+                kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-csi-plugin --timeout=300s
+                
+                # Wait for Longhorn settings to be available
+                until kubectl -n longhorn-system get settings.longhorn.io; do
+                  echo "Waiting for Longhorn CRDs to be ready..."
+                  sleep 5
+                done
+                
+                echo "Applying Longhorn settings..."
+                
+                # Apply settings via Longhorn CRD
+                kubectl -n longhorn-system patch setting default-replica-count --type='merge' -p '{"value":"2"}' || true
+                kubectl -n longhorn-system patch setting replica-soft-anti-affinity --type='merge' -p '{"value":"true"}' || true
+                kubectl -n longhorn-system patch setting default-data-locality --type='merge' -p '{"value":"best-effort"}' || true
+                kubectl -n longhorn-system patch setting storage-over-provisioning-percentage --type='merge' -p '{"value":"100"}' || true
+                kubectl -n longhorn-system patch setting storage-minimal-available-percentage --type='merge' -p '{"value":"10"}' || true
+                kubectl -n longhorn-system patch setting auto-salvage --type='merge' -p '{"value":"true"}' || true
+                kubectl -n longhorn-system patch setting auto-delete-pod-when-volume-detached-unexpectedly --type='merge' -p '{"value":"true"}' || true
+                kubectl -n longhorn-system patch setting create-default-disk-labeled-nodes --type='merge' -p '{"value":"true"}' || true
+                kubectl -n longhorn-system patch setting allow-volume-creation-with-degraded-availability --type='merge' -p '{"value":"true"}' || true
+                
+                # Label nodes that have the storage=longhorn label to enable disk creation
+                echo "Configuring nodes with storage=longhorn label..."
+                for node in $(kubectl get nodes -l storage=longhorn -o name); do
+                  nodeName=$(echo $node | cut -d'/' -f2)
+                  echo "Configuring node: $nodeName"
+                  
+                  # The default disk will be created automatically on labeled nodes
+                  # Additional configuration can be added here if needed
+                done
+                
+                echo "Longhorn configuration completed!"
+                
+                # Show current settings
+                echo "Current Longhorn settings:"
+                kubectl -n longhorn-system get settings -o wide
+      
+      ########################################################
+      # 5. Recurring Backup Jobs (Optional - uncomment to use)
+      ########################################################
+      # ---
+      # apiVersion: longhorn.io/v1beta2
+      # kind: RecurringJob
+      # metadata:
+      #   name: daily-backup
+      #   namespace: longhorn-system
+      # spec:
+      #   cron: "0 2 * * *"  # Daily at 2 AM
+      #   task: "backup"
+      #   groups:
+      #   - default
+      #   retain: 7  # Keep 7 backups
+      #   concurrency: 1
+      #   labels:
+      #     interval: daily
+      # ---
+      # apiVersion: longhorn.io/v1beta2
+      # kind: RecurringJob
+      # metadata:
+      #   name: hourly-snapshot
+      #   namespace: longhorn-system
+      # spec:
+      #   cron: "0 * * * *"  # Every hour
+      #   task: "snapshot"
+      #   groups:
+      #   - default
+      #   retain: 24  # Keep 24 snapshots
+      #   concurrency: 1
+      #   labels:
+      #     interval: hourly

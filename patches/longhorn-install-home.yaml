@@ -1,0 +1,182 @@
+cluster:
+  inlineManifests:
+  - name: longhorn-install-home
+    contents: |
+      ########################################################
+      # 1. Namespace with Pod Security Standards
+      ########################################################
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: longhorn-system
+        labels:
+          homelab.dev/name: longhorn-system
+          # CRITICAL: Pod Security Standards LABELS (not just annotations)
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
+          pod-security.kubernetes.io/enforce: privileged
+        annotations:
+          # Pod Security Standards annotations for compatibility
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
+          pod-security.kubernetes.io/enforce: privileged
+      ########################################################
+      # 2. RBAC for the ephemeral install Job
+      ########################################################
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: longhorn-install
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+        - kind: ServiceAccount
+          name: longhorn-install
+          namespace: longhorn-system
+      ---
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: longhorn-install
+        namespace: longhorn-system
+      ########################################################
+      # 3. Wait for Cilium CNI to be ready
+      ########################################################
+      ---
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: wait-for-cilium
+        namespace: longhorn-system
+      spec:
+        backoffLimit: 30
+        template:
+          metadata:
+            labels: {app: wait-for-cilium}
+          spec:
+            serviceAccountName: longhorn-install
+            hostNetwork: true
+            restartPolicy: OnFailure
+            tolerations:
+              - operator: Exists
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: Exists
+            containers:
+              - name: wait
+                image: bitnami/kubectl:1.31
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Waiting for Cilium to be ready..."
+                    until kubectl -n cilium get pods -l k8s-app=cilium -o jsonpath='{.items[*].status.phase}' | grep -v Pending | grep -v ContainerCreating; do
+                      echo "Cilium not ready yet, waiting..."
+                      sleep 10
+                    done
+                    echo "Cilium is ready!"
+                    
+                    # Also wait for at least one node to be ready
+                    until kubectl get nodes -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep True; do
+                      echo "No nodes ready yet, waiting..."
+                      sleep 10
+                    done
+                    echo "Nodes are ready!"
+                env:
+                  - name: KUBERNETES_SERVICE_HOST
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: status.podIP
+                  - name: KUBERNETES_SERVICE_PORT
+                    value: "6443"
+      ########################################################
+      # 4. Install Longhorn
+      ########################################################
+      ---
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: longhorn-install
+        namespace: longhorn-system
+        annotations:
+          # This ensures the install job runs after Cilium is ready
+          argocd.argoproj.io/sync-wave: "1"
+      spec:
+        backoffLimit: 10
+        template:
+          metadata:
+            labels: {app: longhorn-install}
+          spec:
+            serviceAccountName: longhorn-install
+            hostNetwork: true
+            restartPolicy: OnFailure
+            tolerations:
+              - operator: Exists
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                    - matchExpressions:
+                        - key: node-role.kubernetes.io/control-plane
+                          operator: Exists
+            initContainers:
+              # Wait for the wait-for-cilium job to complete
+              - name: wait-for-cilium-job
+                image: bitnami/kubectl:1.31
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    echo "Waiting for Cilium readiness check to complete..."
+                    until kubectl -n longhorn-system wait --for=condition=complete job/wait-for-cilium --timeout=600s 2>/dev/null; do
+                      echo "Still waiting for Cilium..."
+                      sleep 10
+                    done
+                    echo "Cilium is ready, proceeding with Longhorn installation..."
+                env:
+                  - name: KUBERNETES_SERVICE_HOST
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: status.podIP
+                  - name: KUBERNETES_SERVICE_PORT
+                    value: "6443"
+            containers:
+              - name: longhorn-install
+                image: bitnami/kubectl:1.31
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    set -e
+                    echo "Installing Longhorn v1.9.1 (with Talos system extensions for iSCSI/NFS)..."
+                    
+                    # Talos provides iSCSI and NFS tools via system extensions:
+                    # - siderolabs/iscsi-tools (iscsiadm, iscsid)
+                    # - siderolabs/util-linux-tools (mount.nfs, etc.)
+                    # So we don't need the prerequisite installation jobs
+                    
+                    # Apply the main Longhorn deployment (v1.9.1 has better preflight checks)
+                    kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.9.1/deploy/longhorn.yaml
+                    
+                    echo "Longhorn installation initiated!"
+                    
+                    # Wait for Longhorn to be ready
+                    echo "Waiting for Longhorn components to be ready..."
+                    kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-manager --timeout=600s
+                    kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-driver-deployer --timeout=600s
+                    
+                    echo "Longhorn installation completed successfully!"
+                env:
+                  - name: KUBERNETES_SERVICE_HOST
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: status.podIP
+                  - name: KUBERNETES_SERVICE_PORT
+                    value: "6443"

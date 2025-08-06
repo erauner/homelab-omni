@@ -24,6 +24,8 @@ cluster:
               - cilium-test-1
               - homeassist
               - intel-gpu
+              - istio-ingress
+              - istio-system
               - longhorn
               - monitoring
               - tailscale

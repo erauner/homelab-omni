@@ -118,12 +118,6 @@ cluster:
               name: cilium
               create: false
               sync: true
-          
-          # CNI Chaining Configuration for Istio CNI
-          # This allows Istio CNI to chain after Cilium
-          cni:
-            exclusive: false        # CRITICAL: Allows Istio CNI to chain after Cilium
-            chainingMode: generic-veth  # Standard chaining mode for compatibility
           # ------------------------------------------------------------------
           # The following block was used to apply a *global allow-list* for
           # LoadBalancer allocations. Cilium's operator consults it *before*

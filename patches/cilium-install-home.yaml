@@ -46,11 +46,6 @@ cluster:
           ipv4NativeRoutingCIDR: 10.0.0.0/8
 
           routingMode: native
-          
-          # CNI Configuration for Istio CNI chaining
-          cni:
-            exclusive: false  # Allow chaining with Istio CNI
-            chainingMode: generic-veth  # Use generic chaining mode
 
           # --------- NATIVE ROUTING (table 200) settings ----------
           # Required for multi-node clusters to program direct node routes!

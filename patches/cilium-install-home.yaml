@@ -113,7 +113,7 @@ cluster:
             ui:
               enabled: true
           gatewayAPI:
-            enabled: true
+            enabled: false
             secretsNamespace:
               name: cilium
               create: false

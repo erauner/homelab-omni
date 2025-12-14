@@ -78,6 +78,8 @@ patches:
     file: ./patches/machine-kubelet.yaml
   - name: kernel-storage
     file: ./patches/kernel-iscsi.yaml
+  - name: kernel-amdgpu
+    file: ./patches/kernel-amdgpu.yaml
   # ✅ Correct: inject the "bgp=enable" node label only on worker nodes (eligible for BGP speaking).
   - name: node-labels
     inline:

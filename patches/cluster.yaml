@@ -48,3 +48,5 @@ cluster:
       provisioner: rancher.io/local-path
       volumeBindingMode: WaitForFirstConsumer
       reclaimPolicy: Retain
+  # NOTE: CoreDNS is managed by Flux (infrastructure/core/coredns/)
+  # Do NOT add coredns config here - it will be overwritten by Flux after bootstrap

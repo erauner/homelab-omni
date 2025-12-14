@@ -1,0 +1,7 @@
+# AMD GPU kernel modules for hardware video transcoding (Plex, etc.)
+# - amdgpu: AMD GPU driver for Radeon Graphics (integrated in Ryzen APUs)
+# Enables VAAPI hardware encoding/decoding via /dev/dri
+machine:
+  kernel:
+    modules:
+      - name: amdgpu

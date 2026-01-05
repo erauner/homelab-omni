@@ -1,9 +1,17 @@
 # This patch file is used to set the kubelet image garbage collection thresholds to lower than the default values of 80 and 85 percent.
 # Helps greatly with freeing up disk space on the hosts. NUC4 was running low enough to hit Longhorn's default thresholds for larger
 # images like Plex.
+#
+# nodeIP.validSubnets constrains node IP to physical LAN subnet to prevent
+# Talos/Cilium confusion when multiple addresses are available (CiliumInternalIP
+# vs InternalIP). This prevents kubelet registration issues after node reboots.
+# See: https://github.com/erauner12/homelab-k8s/issues/987
 
 machine:
   kubelet:
+    nodeIP:
+      validSubnets:
+        - 192.168.1.0/24  # Physical LAN only, not pod/overlay network
     extraConfig:
       imageGCLowThresholdPercent: 40
       imageGCHighThresholdPercent: 50 

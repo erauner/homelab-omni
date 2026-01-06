@@ -1,20 +1,41 @@
-# This enables image caching for the listed remote registries. Saves bandwidth and speeds up deployments. 
-# Registries are hosted in Container Station on the QNAP NAS.
+# Containerd registry mirrors for Nexus Docker proxies
+# Routes image pulls through Nexus cache with upstream fallback for bootstrap
+# See: https://github.com/erauner12/omni/issues/2
 machine:
   registries:
     mirrors:
+      # Docker Hub
       docker.io:
         endpoints:
-        - http://192.168.1.3:5000
-      gcr.io:
-        endpoints:
-        - http://192.168.1.3:5002
+          - https://docker-hub.nexus.erauner.dev  # Nexus cache
+          - https://registry-1.docker.io          # Upstream fallback
+
+      # GitHub Container Registry
       ghcr.io:
         endpoints:
-        - http://192.168.1.3:5003
-      registry.k8s.io:
-        endpoints:
-        - http://192.168.1.3:5001
+          - https://docker-ghcr.nexus.erauner.dev
+          - https://ghcr.io
+
+      # Quay.io
       quay.io:
         endpoints:
-        - http://192.168.1.3:5004
+          - https://docker-quay.nexus.erauner.dev
+          - https://quay.io
+
+      # LinuxServer.io
+      lscr.io:
+        endpoints:
+          - https://docker-lscr.nexus.erauner.dev
+          - https://lscr.io
+
+      # Kubernetes registry
+      registry.k8s.io:
+        endpoints:
+          - https://docker-k8s.nexus.erauner.dev
+          - https://registry.k8s.io
+
+      # AWS ECR Public
+      public.ecr.aws:
+        endpoints:
+          - https://docker-ecr.nexus.erauner.dev
+          - https://public.ecr.aws

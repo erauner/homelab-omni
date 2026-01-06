@@ -31,6 +31,8 @@ patches:
     file: ./patches/machine-kubelet.yaml
   - name: kernel-storage
     file: ./patches/kernel-iscsi.yaml
+  - name: machine-registries
+    file: ./patches/machine-registries.yaml
   # 🛑 DO NOT inject the "bgp=enable" label here—only Workers run the BGP speaker!
   # - name: node-labels
   #   inline:
@@ -80,6 +82,8 @@ patches:
     file: ./patches/kernel-iscsi.yaml
   - name: kernel-amdgpu
     file: ./patches/kernel-amdgpu.yaml
+  - name: machine-registries
+    file: ./patches/machine-registries.yaml
   # ✅ Correct: inject the "bgp=enable" node label only on worker nodes (eligible for BGP speaking).
   - name: node-labels
     inline:

@@ -70,6 +70,14 @@ cluster:
           loadBalancer:
             mode: dsr          # Direct-Server-Return
             dsrDispatch: geneve
+          # ------------------------------------------------------------------
+          # Socket-level load balancing for host namespace processes
+          # Required for host network → LB VIP access (e.g., containerd → Nexus)
+          # Without this, DSR mode causes asymmetric routing failures.
+          # See: https://github.com/cilium/cilium/issues/22375
+          # ------------------------------------------------------------------
+          socketLB:
+            enabled: true
           bgpControlPlane:
             enabled: true
           bgp:

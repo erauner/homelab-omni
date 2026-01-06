@@ -1,6 +1,8 @@
 # Containerd registry mirrors for Nexus Docker proxies
 # Uses internal ClusterIP (HTTP) to bypass LB VIP intermittent timeouts
 # Falls back to upstream registries if Nexus is unavailable
+# NOTE: Uses ClusterIP (10.102.86.160) because containerd uses host DNS,
+#       not Kubernetes CoreDNS, so service names don't resolve.
 # See: https://github.com/erauner12/omni/issues/2
 machine:
   registries:
@@ -8,41 +10,41 @@ machine:
       # Docker Hub
       docker.io:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5000  # Internal proxy
-          - https://registry-1.docker.io                          # Upstream fallback
+          - http://10.102.86.160:5000  # Nexus ClusterIP
+          - https://registry-1.docker.io
 
       # GitHub Container Registry
       ghcr.io:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5001
+          - http://10.102.86.160:5001
           - https://ghcr.io
 
       # Quay.io
       quay.io:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5002
+          - http://10.102.86.160:5002
           - https://quay.io
 
       # LinuxServer.io
       lscr.io:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5003
+          - http://10.102.86.160:5003
           - https://lscr.io
 
       # Kubernetes registry
       registry.k8s.io:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5004
+          - http://10.102.86.160:5004
           - https://registry.k8s.io
 
       # AWS ECR Public
       public.ecr.aws:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5005
+          - http://10.102.86.160:5005
           - https://public.ecr.aws
 
       # Nexus hosted registry (homelab images)
       # No upstream fallback - this is the source of truth
       docker.nexus.erauner.dev:
         endpoints:
-          - http://nexus-nexus3.registry.svc.cluster.local:5010
+          - http://10.102.86.160:5010

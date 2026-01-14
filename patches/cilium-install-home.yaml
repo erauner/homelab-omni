@@ -114,12 +114,29 @@ cluster:
                 - NET_ADMIN
                 - SYS_ADMIN
                 - SYS_RESOURCE
+          # ------------------------------------------------------------------
+          # Prometheus Metrics - Enable endpoints only
+          # ServiceMonitors are managed by GitOps (homelab-k8s/infrastructure/cilium-config)
+          # ------------------------------------------------------------------
+          prometheus:
+            enabled: true
+          operator:
+            prometheus:
+              enabled: true
           hubble:
             enabled: true
             relay:
               enabled: true
             ui:
               enabled: true
+            metrics:
+              enabled:
+                - dns
+                - drop
+                - tcp
+                - flow
+                - icmp
+                - http
           gatewayAPI:
             enabled: false
             secretsNamespace:

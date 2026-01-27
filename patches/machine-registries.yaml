@@ -1,6 +1,6 @@
-# Containerd registry mirrors for Nexus Docker proxies
-# Uses internal ClusterIP (HTTP) to bypass LB VIP intermittent timeouts
-# Falls back to upstream registries if Nexus is unavailable
+# Containerd registry mirrors with Spegel P2P + Nexus proxy fallback
+# Pull order: Spegel P2P (localhost) -> Nexus proxy -> Upstream
+#
 # NOTE: Uses ClusterIP (10.102.86.160) because containerd uses host DNS,
 #       not Kubernetes CoreDNS, so service names don't resolve.
 # See: https://github.com/erauner12/omni/issues/2
@@ -10,41 +10,48 @@ machine:
       # Docker Hub
       docker.io:
         endpoints:
-          - http://10.102.86.160:5000  # Nexus ClusterIP
-          - https://registry-1.docker.io
+          - http://127.0.0.1:30020/v2/docker.io  # Spegel P2P
+          - http://10.102.86.160:5000            # Nexus ClusterIP
+          - https://registry-1.docker.io         # Upstream fallback
 
       # GitHub Container Registry
       ghcr.io:
         endpoints:
-          - http://10.102.86.160:5001
-          - https://ghcr.io
+          - http://127.0.0.1:30020/v2/ghcr.io    # Spegel P2P
+          - http://10.102.86.160:5001            # Nexus ClusterIP
+          - https://ghcr.io                      # Upstream fallback
 
       # Quay.io
       quay.io:
         endpoints:
-          - http://10.102.86.160:5002
-          - https://quay.io
+          - http://127.0.0.1:30020/v2/quay.io    # Spegel P2P
+          - http://10.102.86.160:5002            # Nexus ClusterIP
+          - https://quay.io                      # Upstream fallback
 
       # LinuxServer.io
       lscr.io:
         endpoints:
-          - http://10.102.86.160:5003
-          - https://lscr.io
+          - http://127.0.0.1:30020/v2/lscr.io    # Spegel P2P
+          - http://10.102.86.160:5003            # Nexus ClusterIP
+          - https://lscr.io                      # Upstream fallback
 
       # Kubernetes registry
       registry.k8s.io:
         endpoints:
-          - http://10.102.86.160:5004
-          - https://registry.k8s.io
+          - http://127.0.0.1:30020/v2/registry.k8s.io  # Spegel P2P
+          - http://10.102.86.160:5004                  # Nexus ClusterIP
+          - https://registry.k8s.io                   # Upstream fallback
 
       # AWS ECR Public
       public.ecr.aws:
         endpoints:
-          - http://10.102.86.160:5005
-          - https://public.ecr.aws
+          - http://127.0.0.1:30020/v2/public.ecr.aws  # Spegel P2P
+          - http://10.102.86.160:5005                 # Nexus ClusterIP
+          - https://public.ecr.aws                    # Upstream fallback
 
       # Nexus hosted registry (homelab images)
-      # No upstream fallback - this is the source of truth
+      # Spegel can share these too if cached on nodes
       docker.nexus.erauner.dev:
         endpoints:
-          - http://10.102.86.160:5010
+          - http://127.0.0.1:30020/v2/docker.nexus.erauner.dev  # Spegel P2P
+          - http://10.102.86.160:5010                           # Nexus ClusterIP (source)

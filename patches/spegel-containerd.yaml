@@ -1,0 +1,11 @@
+# Spegel P2P image distribution - containerd configuration
+# Requires discard_unpacked_layers = false for P2P sharing to work
+# See: https://spegel.dev/docs/getting-started/
+machine:
+  files:
+    - content: |
+        [plugins]
+          [plugins."io.containerd.cri.v1.images"]
+            discard_unpacked_layers = false
+      path: /etc/cri/conf.d/20-customization.part
+      op: create

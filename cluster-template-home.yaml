@@ -33,6 +33,8 @@ patches:
     file: ./patches/kernel-iscsi.yaml
   - name: machine-registries
     file: ./patches/machine-registries.yaml
+  - name: spegel-containerd
+    file: ./patches/spegel-containerd.yaml
   # 🛑 DO NOT inject the "bgp=enable" label here—only Workers run the BGP speaker!
   # ✅ Add control-plane taint to prevent regular workloads from scheduling here.
   # The 4-core Beelink is undersized compared to 16-core workers - keep it for
@@ -87,6 +89,8 @@ patches:
     file: ./patches/kernel-amdgpu.yaml
   - name: machine-registries
     file: ./patches/machine-registries.yaml
+  - name: spegel-containerd
+    file: ./patches/spegel-containerd.yaml
   # ✅ Correct: inject the "bgp=enable" node label only on worker nodes (eligible for BGP speaking).
   - name: node-labels
     inline:

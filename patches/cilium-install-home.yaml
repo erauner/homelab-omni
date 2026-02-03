@@ -71,19 +71,19 @@ cluster:
             mode: dsr          # Direct-Server-Return
             dsrDispatch: geneve
           # ------------------------------------------------------------------
-          # Socket-level load balancing for host namespace processes
-          # Required for host network → LB VIP access (e.g., containerd → Nexus)
-          # Without this, DSR mode causes asymmetric routing failures.
-          # See: https://github.com/cilium/cilium/issues/22375
+          # Socket-level load balancing
           #
-          # hostNamespaceOnly: true bypasses socket LB inside pod namespaces,
-          # falling back to tc BPF. This is required for iptables-based proxies
-          # like Tailscale to work correctly with ClusterIP services.
+          # hostNamespaceOnly: false enables socket LB in ALL namespaces (host + pod).
+          # This is REQUIRED for iptables-based proxies like Tailscale to work with
+          # ClusterIP services. When true, socket LB only works in host namespace,
+          # and iptables-forwarded packets inside pods don't get proper service
+          # translation from tc BPF (causing connection timeouts).
+          #
           # See: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
           # ------------------------------------------------------------------
           socketLB:
             enabled: true
-            hostNamespaceOnly: true
+            hostNamespaceOnly: false
           bgpControlPlane:
             enabled: true
           bgp:

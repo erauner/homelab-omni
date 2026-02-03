@@ -75,9 +75,15 @@ cluster:
           # Required for host network → LB VIP access (e.g., containerd → Nexus)
           # Without this, DSR mode causes asymmetric routing failures.
           # See: https://github.com/cilium/cilium/issues/22375
+          #
+          # hostNamespaceOnly: true bypasses socket LB inside pod namespaces,
+          # falling back to tc BPF. This is required for iptables-based proxies
+          # like Tailscale to work correctly with ClusterIP services.
+          # See: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
           # ------------------------------------------------------------------
           socketLB:
             enabled: true
+            hostNamespaceOnly: true
           bgpControlPlane:
             enabled: true
           bgp:

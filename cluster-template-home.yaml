@@ -102,6 +102,8 @@ patches:
           # Explicit false replaces the existing label and excludes these nodes
           # from the GPU operator's amd.com/gpu=true selector.
           amd.com/gpu: "false"
+  - name: gvisor-userns-workers
+    file: ./patches/gvisor-userns-workers.yaml
 systemExtensions:
   - siderolabs/iscsi-tools
   - siderolabs/util-linux-tools
@@ -210,7 +212,7 @@ kind: Machine                           # worker2  → 192.168.1.195
 name: 4913bb46-7cd8-2048-84c7-a8595f97a48c
 patches:
   - name: gvisor-userns-worker2
-    file: ./patches/gvisor-userns-worker2.yaml
+    file: ./patches/gvisor-userns-workers.yaml
   - name: set-nodename
     inline:
       machine:

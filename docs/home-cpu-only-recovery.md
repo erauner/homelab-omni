@@ -42,8 +42,11 @@ Keep AMD CPU microcode and all storage extensions. No disks or PVCs are reset.
 
 ## Revisit GPU support
 
-Use a separate reviewed change after BIOS/thermal/memory checks and an isolated
-GPU stability test. Restore the extension, module patch, and true label together
-on one test node first. Verify it before enabling a GPU application. Do not
-scale Qwen up unchanged: its existing affinity still targets CPU-only worker2.
-Reverting this recovery immediately can reintroduce the suspected hang.
+Use a separate reviewed change after BIOS/thermal/memory checks. Start with the
+[driver-only canary](home-gpu-driver-canary.md) on one node: extension and module
+patch, but keep `amd.com/gpu=false`. Do not enable the operator, metrics exporter,
+or GPU workloads during the initial driver test. Operator enablement and an
+application test require later reviewed changes after the driver is stable.
+Do not scale Qwen up unchanged: its affinity targets worker2 and its ROCm image
+and hardware override still need compatibility checks. Reverting this recovery
+globally can reintroduce the suspected hang.

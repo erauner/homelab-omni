@@ -122,8 +122,8 @@ systemExtensions:
 # amd-ucode and realtek-firmware, but no amdgpu, remained stable and the node
 # subsequently rejoined Kubernetes on the CPU-only schematic. Keep both the
 # amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
-# DRIVER CANARY: the additions below are for worker2 only. Do not merge/sync
-# until every gate in docs/home-gpu-driver-canary.md is satisfied.
+# The 2026-09-07 driver-only canary became unreachable shortly after boot.
+# Keep CPU-only while its captured initialization/freeze evidence is investigated.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged
 # missing rtl_nic/rtl8168h-2.fw without it. Keep this firmware in the test image.
@@ -153,15 +153,12 @@ patches:
         nodeLabels:
           # Driver-only test: exclude both AMD DeviceConfig selectors.
           amd.com/gpu: "false"
-  - name: kernel-amdgpu-worker2-canary
-    file: ./patches/kernel-amdgpu.yaml
 systemExtensions:
   - siderolabs/iscsi-tools
   - siderolabs/util-linux-tools
   - siderolabs/btrfs
   - siderolabs/amd-ucode
   - siderolabs/realtek-firmware
-  - siderolabs/amdgpu
 
 #######################################################################
 # ─── PER-NODE HOSTNAME + STATIC IP PATCHES ──────────────────────────

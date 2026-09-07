@@ -122,7 +122,7 @@ systemExtensions:
 # amd-ucode and realtek-firmware, but no amdgpu, remained stable and the node
 # subsequently rejoined Kubernetes on the CPU-only schematic. Keep both the
 # amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
-# DRAFT CANARY: the additions below are for worker2 only. Do not merge/sync
+# DRIVER CANARY: the additions below are for worker2 only. Do not merge/sync
 # until every gate in docs/home-gpu-driver-canary.md is satisfied.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged

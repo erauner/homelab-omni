@@ -1,6 +1,6 @@
 # Home AMD GPU driver-only canary
 
-Status: **draft; not approved for merge or Omni sync**. Candidate: worker2,
+Status: **authorized for the 2026-09-07 maintenance window; rollout pending**. Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
 It is not an empty node: kagent/Substrate and gateway databases run there.
@@ -22,7 +22,7 @@ IOMMU change, overclock, BIOS flash, Talos upgrade, or Kubernetes upgrade is
 included. Beelink's published FP656V509 notes say only "code update"; obtain
 exact-unit compatibility and fix details before considering a separate flash.
 
-The draft changes only the worker2 machine set: add `siderolabs/amdgpu`, load
+The change affects only the worker2 machine set: add `siderolabs/amdgpu`, load
 the module, and explicitly keep `amd.com/gpu=false`. Preserve amd-ucode,
 Realtek firmware, storage extensions, gVisor prerequisites, networking, and
 `bgp=enable`. Workers1/3 and the control plane remain CPU-only. The existing
@@ -52,7 +52,8 @@ workload isolation and a device-mount audit are still required.
   workers and database workloads. Do not delete chats, databases or PVCs.
 - [ ] Cordon and drain worker2 as a recorded maintenance operation after
   placement changes converge. Inspect a drain dry-run first; no `--force`,
-  `--disable-eviction`, or `--delete-emptydir-data` shortcuts. A blocking PDB,
+  `--disable-eviction` shortcuts. Any `emptyDir` cleanup requires a recorded
+  audit of the exact mounts; persistent data must remain intact. A blocking PDB,
   local data, singleton outage or affinity is a stop condition, not permission
   to force eviction. Keep the node cordoned during the initial test.
 - [ ] Check Cilium BGP peers/routes before and after the drain. Worker2's
@@ -94,6 +95,20 @@ label may remain). Sync only the reviewed rollback. If the node is frozen,
 use the pre-arranged console/recovery method; verify the CPU-only image is
 actually installed. No Talos reset, disk wipe, PVC deletion or volume salvage.
 Restore workloads and uncordon only after node, storage and BGP health pass.
+
+## Maintenance checkpoint — 2026-09-07
+
+The user authorized worker2, physical console/power recovery and brief singleton
+outages. Hardware checks found about 57 C at idle and no retained critical thermal
+or hardware-error events; no full memory test has been performed. CPU-only recovery
+media and verified database restore archives are held in private local storage.
+
+The first drain relocated the databases and passed four actor suspend/resume
+smoke tests. Gateway PDB protection was restored. Envoy spread constraints were
+fixed to honor cordoned nodes (homelab-k8s PR 1715). That attempt was cancelled
+before GPU enablement because new CI builds displaced Plex. Jenkins quiet-down
+is now API-verified; a second drain is in progress. Do not mistake preparation
+checks for driver acceptance or a completed 24-hour soak.
 
 ## Sources
 

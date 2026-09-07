@@ -121,11 +121,12 @@ systemExtensions:
 # siderolabs/amdgpu extension initialized. A minimal Talos image containing
 # amd-ucode and realtek-firmware, but no amdgpu, remained stable and the node
 # subsequently rejoined Kubernetes on the CPU-only schematic. Keep both the
-# amdgpu extension and patches/kernel-amdgpu.yaml out of this machine set.
+# amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
+# DRAFT CANARY: the additions below are for worker2 only. Do not merge/sync
+# until every gate in docs/home-gpu-driver-canary.md is satisfied.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged
-# missing rtl_nic/rtl8168h-2.fw without it. Re-enable GPU support only after
-# MemTest, BIOS/thermal checks, and an isolated newer Talos/kernel test pass.
+# missing rtl_nic/rtl8168h-2.fw without it. Keep this firmware in the test image.
 kind: Workers
 name: worker2
 machines:
@@ -149,12 +150,18 @@ patches:
         kubelet:
           extraArgs:
             "node-labels": "bgp=enable"
+        nodeLabels:
+          # Driver-only test: exclude both AMD DeviceConfig selectors.
+          amd.com/gpu: "false"
+  - name: kernel-amdgpu-worker2-canary
+    file: ./patches/kernel-amdgpu.yaml
 systemExtensions:
   - siderolabs/iscsi-tools
   - siderolabs/util-linux-tools
   - siderolabs/btrfs
   - siderolabs/amd-ucode
   - siderolabs/realtek-firmware
+  - siderolabs/amdgpu
 
 #######################################################################
 # ─── PER-NODE HOSTNAME + STATIC IP PATCHES ──────────────────────────

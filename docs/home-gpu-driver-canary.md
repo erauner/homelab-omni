@@ -1,6 +1,6 @@
 # Home AMD GPU driver-only canary
 
-Status: **authorized for the 2026-09-07 maintenance window; rollout pending**. Canary: worker2,
+Status: **failed 2026-09-07; CPU-only rollback required**. Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
 It is not an empty node: kagent/Substrate and gateway databases run there.
@@ -116,3 +116,24 @@ checks for driver acceptance or a completed 24-hour soak.
 - [Omni cluster templates](https://docs.siderolabs.com/omni/reference/cluster-templates)
 - [Beelink FP656V509 notes](https://www.bee-link.com/blogs/all/beelink-aug-sept-bios-update-summary)
 - [CPU-only incident/recovery PR](https://github.com/erauner/homelab-omni/pull/22)
+
+## Failed canary — 2026-09-07
+
+PR 34 was merged and synced after graceful drain and API-verified Jenkins
+quiet-down. Talos remained 1.13.10 / kernel 6.18.48. The amdgpu extension
+20260810-v1.13.10 initialized PCI 1002:15e7 and SMU successfully at 20:51:41 UTC;
+card0 and renderD128 appeared. GPU label remained false with no allocatable GPU.
+Talos uncordoned the node on return; it was immediately cordoned again and only
+DaemonSet pods were present.
+
+Last retained kernel log is approximately 20:52:08 UTC; last kubelet heartbeat
+20:52:10. By 20:53:03 the node was NotReady and Talos API reads timed out. No
+new SMU/gfxoff error was captured before the loss of contact. This reproduces
+loss of stability with driver-only enablement; it does not establish the
+hardware or driver root cause. No idle soak or application/load test passed.
+
+Talos logged `removing fallback entry` after declaring the machine ready.
+Do not assume the previous CPU-only entry remains available. The prepared
+CPU-only recovery ISO remains the fallback method if remote rollback cannot
+reach the node. Preserve logs and disks; do not reset or wipe. CPU-only rollback
+removes the amdgpu extension/module and retains amd.com/gpu=false.

@@ -14,4 +14,11 @@ machine:
         - 192.168.1.0/24  # Physical LAN only, not pod/overlay network
     extraConfig:
       imageGCLowThresholdPercent: 40
-      imageGCHighThresholdPercent: 50 
+      imageGCHighThresholdPercent: 50
+      # Raised from the kubelet default of 110. With worker2 out for GPU
+      # maintenance the cluster ran on two workers: worker3 sat pegged at
+      # 110/110 pods while using only ~46% of its CPU requests, which left
+      # VolSync backup movers (they must run on the node holding the RWO
+      # volume) permanently Pending, and briefly left Plex unschedulable.
+      # Cilium allocates a /24 per node, so ~250 pods/node is the ceiling.
+      maxPods: 150 

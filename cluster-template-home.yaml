@@ -238,6 +238,9 @@ patches:
           net.ipv4.conf.enp1s0.rp_filter: "0"
           # net.ipv4.conf.cilium_host.rp_filter: "0"
 
+  - name: worker2-crash-logging
+    file: ./patches/worker2-crash-logging.yaml
+
 ---
 kind: Machine                           # worker3  → 192.168.1.196
 name: d3945f76-fb6b-c244-9ca3-a8595f9b4f7e

@@ -190,6 +190,7 @@ patches:
 ---
 kind: Machine                           # worker1  → 192.168.1.194
 name: 30467aa4-b8a4-2e43-8591-a8595f97a43c
+locked: true                            # Hold singleton workloads during the first upgrade stage
 patches:
   - name: set-nodename
     inline:
@@ -240,6 +241,7 @@ patches:
 ---
 kind: Machine                           # worker3  → 192.168.1.196
 name: d3945f76-fb6b-c244-9ca3-a8595f9b4f7e
+locked: true                            # Hold singleton workloads during the first upgrade stage
 patches:
   - name: set-nodename
     inline:

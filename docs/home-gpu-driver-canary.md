@@ -13,8 +13,11 @@ and maintenance notes below are historical.
 
 Verified against a CPU-only reboot before GPU enablement: worker2 returned
 Ready with a new boot ID, and the Mac received fresh raw kernel records and
-Talos service messages during startup. The receiver remains active through
-2026-10-27 19:32 UTC for recovery observation; the GPU canary has ended.
+Talos service messages during startup. The Talos receiver was restarted at
+23:16 UTC with the refreshed private Talos configuration and a deadline of 2026-10-27 23:16 UTC. The separate Linux
+netconsole receiver was restarted through 2026-10-27 01:16 UTC. Check each
+receiver's status file and fresh packets before relying on it; the earlier
+Talos receiver was no longer running when checked. The GPU canary has ended.
 
 The worker2-only `worker2-crash-logging` patch forwards Talos service logs and
 kernel logs directly over the LAN to the Mac at `192.168.1.174:6666/udp`.
@@ -187,7 +190,8 @@ read-only and unmounted; no Kubernetes/application GPU workload was running.
 The first Linux case used kexec to remove the recovery image's hard module
 blacklist. At 22:10:24 UTC, manual `modprobe amdgpu modeset=1` loaded the driver
 with default power settings and created `/dev/dri/renderD128`. Last successful
-SSH/ping: 22:12:40 UTC; first failed sample: 22:12:45. The console froze. Final
+SSH/ping: 22:12:40 UTC; first failed sample: 22:12:45. The user reported a
+frozen console; the final state of that first Linux session is unverified. Final
 kernel packets were routine firewall drops, with no captured GPU fault or
 panic. NMI/soft watchdog sysctls were enabled. The default keyboard SysRq mask
 was 16, which did not allow debug dumps, so the unsuccessful keyboard attempt
@@ -199,17 +203,36 @@ amdgpu load parameters; keyboard SysRq debugging was explicitly enabled.
 The edited command line contained `nomodeset,radeon` instead of `nomodeset`;
 record this discrepancy. Automatic GPU loading was still prevented by
 `modprobe.blacklist`, and the explicit driver `modeset=1` setting was retained.
-At 22:39 UTC the cold-boot case had exceeded 11 minutes with zero failed
-ping/SSH checks and no captured GPU fault. This is an idle comparison, not
-a stability acceptance or confirmation of the reboot-path hypothesis.
+The apparently healthy 11-minute checkpoint was superseded: last successful
+SSH/ping was 22:41:47 UTC, first failed sample 22:41:52, about 14 minutes after
+driver loading. Talos started a new kernel at 22:41:59 and finished its boot
+sequence at 22:42:11. The user confirmed Talos appeared without a manual
+restart. Talos returned with boot ID `e11e5ead-3147-4e2b-9adf-d4d5c4e54c0d`,
+CPU-only, with no amdgpu/radeon module loaded. This case was an unexpected
+platform reboot, not a still-running Linux session with lost SSH.
 
-Retained Talos logs also show `kexecPrepare` immediately before the failed
-19:41 GPU boot. This makes the reboot path a candidate for a controlled Talos
-retry. The worker2-only `firmware-reboots` patch disables kernel kexec while
-keeping the CPU-only image. Verify `/proc/sys/kernel/kexec_load_disabled` is 1
-on that CPU baseline before separately restoring the GPU extension. This
-forces a firmware reboot path; it does not remove AC power or establish GPU
-stability. A [Talos maintainer documents the sysctl](https://github.com/siderolabs/talos/issues/13785).
+Linux's baseline boot reported previous reset reason `0x00200800` (ACPI power
+state transition). After the failure, Talos reported `0x08000800`:
+"an uncorrected error caused a data fabric sync flood event". The changed
+flag supports a new fatal fabric reset. It does not identify the originating
+component or distinguish a driver-triggered hardware error from a physical,
+power or firmware problem. No final GPU fault, panic or stack was captured.
+See [Linux AMD reset-reason documentation](https://docs.kernel.org/arch/x86/amd-debugging.html#random-reboot-issues).
+
+Retained Talos logs show `kexecPrepare` before the failed 19:41 GPU boot. The
+worker2-only `firmware-reboots` patch disables kernel kexec on the CPU-only
+baseline; `/proc/sys/kernel/kexec_load_disabled` was verified as 1. Retain
+this as a restart-path control, not a demonstrated GPU fix: the cold Linux
+case also failed. Do not restore the Talos GPU extension based on that patch.
+A [Talos maintainer documents the sysctl](https://github.com/siderolabs/talos/issues/13785).
+
+A subsequent photo shows extensive green corruption in the firmware's boot
+selection menu, before Linux or Talos starts. Earlier artifacts were visible
+on responsive CPU-only Talos using the EFI framebuffer. Display corruption
+therefore does not require the running amdgpu driver. Check the display cable,
+input and another display before attributing it to the GPU or shared RAM;
+none of those components has been isolated as the cause. No BIOS flash,
+voltage adjustment or memory test has been performed.
 
 A file comparison found 11 of 15 Renoir/Green Sardine firmware candidates were
 identical between this Linux image and the failed Talos image; four differ.
@@ -221,12 +244,14 @@ Raw evidence and per-boot records remain private under
 
 ## Next GPU investigation
 
-Keep the node isolated. Worker2 currently hosts Longhorn replicas even though
-no volumes are attached there for applications. Before another GPU test,
-evacuate its replicas and verify healthy replacement copies on the other
-workers; no attached volumes alone is not a sufficient storage safety check.
-Establish kernel-level capture before loading the driver again. SystemRescue has loadable `netconsole.ko`, so it can be configured
-after the Realtek NIC is up. Its firmware package is
+Keep the node isolated. Before the next diagnostic shutdown, worker2 was
+cordoned with the recovery taint, Longhorn scheduling disabled and eviction
+requested, with zero replicas, engines and volume attachments and only
+infrastructure DaemonSet pods. Recheck these conditions before every GPU test;
+no attached application volumes alone is not sufficient. Establish actual
+kernel-level capture before loading the driver. SystemRescue has loadable
+`netconsole.ko`, so it can be configured after the Realtek NIC is up. Its
+firmware package is
 `linux-firmware-amdgpu 20260622-1`; the failed Talos image used
 `amdgpu 20260916-v1.13.12`. These are useful comparison baselines, not a known fix.
 
@@ -240,6 +265,19 @@ test, then compare kernel and firmware baselines and vary one documented power-m
 Earlier SMU/gfxoff reports make power management a hypothesis worth testing;
 the latest retry captured successful SMU initialization and no final fault.
 Do not enable application workloads or expand to another worker on that basis.
+
+The user selected a shorter isolated GFXOFF comparison instead of a memory
+test. The planned load is `modprobe amdgpu modeset=1 ppfeaturemask=0xfff73fff`:
+this clears only `PP_GFXOFF_MASK` (`0x8000`) from the measured Linux default
+`0xfff7bfff`; it does not disable all power management. This test has not yet
+run. First check the newly observed firmware-menu display corruption. Keep
+the same Linux image, read-only/unmounted NVMe and verified capture; retain
+`nomodeset` and `modprobe.blacklist=amdgpu,radeon`, changing only the hard
+blacklist to `module_blacklist=radeon` for deliberate loading. Record the
+previous command-line typo as a comparison limitation. Verify the actual
+module mask and GPU state after loading, and observe for at least 30 minutes
+before drawing even a preliminary conclusion. A pass would be evidence for
+further testing, not proof of production stability or a Talos fix.
 
 If a complete lock still prevents final messages, investigate a supported
 hardware serial-console path or a separately built debug kernel with suitable

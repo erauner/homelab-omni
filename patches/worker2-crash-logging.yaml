@@ -1,0 +1,15 @@
+# Temporary direct LAN capture, independent of Kubernetes and the Omni tunnel.
+# The Mac receiver must remain awake at 192.168.1.174 during the GPU test.
+# This userspace forwarding cannot guarantee the final message of a hard lockup.
+machine:
+  logging:
+    destinations:
+      - endpoint: udp://192.168.1.174:6666
+        format: json_lines
+        extraTags:
+          capture: worker2-gpu-canary
+---
+apiVersion: v1alpha1
+kind: KmsgLogConfig
+name: worker2-crash-capture
+url: udp://192.168.1.174:6666

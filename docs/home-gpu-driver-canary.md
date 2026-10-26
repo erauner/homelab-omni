@@ -1,11 +1,56 @@
 # Home AMD GPU driver-only canary
 
-Status: **failed 2026-09-07; CPU-only rollback required**. Canary: worker2,
+Status: **CPU-only on Talos 1.13.12, isolated for a new test (2026-10-26)**.
+The 2026-09-07 GPU canary failed; GPU enablement has not been repeated yet.
+Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
-It is not an empty node: kagent/Substrate and gateway databases run there.
+Worker2 is cordoned with `homelab.dev/recovery=cpu-only:NoSchedule`; normal
+workloads and databases have moved to the other workers. The earlier incident
+and maintenance notes below are historical.
 
-## Evidence and experiment
+## Crash capture — 2026-10-26
+
+The worker2-only `worker2-crash-logging` patch forwards Talos service logs and
+kernel logs directly over the LAN to the Mac at `192.168.1.174:6666/udp`.
+The named `KmsgLogConfig` supplements Omni's existing kernel-log destination.
+This does not change the OS image, Kubernetes version or GPU configuration.
+Remove this temporary patch after the investigation or when the receiver moves.
+
+On the Mac, a user launch agent runs a bounded 24-hour receiver, direct ping
+checks and Kubernetes node checks every five seconds, plus a Talos kernel-log
+stream that reconnects every minute. Logs and status are retained privately in
+`~/.local/state/homelab-maintenance/talos-11312-20261026/`:
+
+- `worker2-udp-logs.jsonl`: timestamped datagrams from worker2, including both
+  kernel and Talos service records.
+- `worker2-heartbeats.jsonl`: direct reachability, Ready condition and boot ID.
+- `worker2-talos-kernel.log`: separate capture through the Talos API.
+- `worker2-capture-status.json`: receiver PID, deadline and packet counts.
+
+The receiver uses `caffeinate` to prevent idle sleep for its lifetime. Keep
+the Mac powered, on this LAN with its lid open and address unchanged. To stop
+capture early, run `launchctl bootout gui/$(id -u)/local.homelab.worker2-crash-capture`.
+Retain raw logs privately: boot messages can contain Omni enrollment credentials.
+
+This is userspace log forwarding, not kernel netconsole or a persistent crash
+dump. The installed 6.18.57 kernel has `CONFIG_NETCONSOLE=y`,
+`CONFIG_NETCONSOLE_DYNAMIC` disabled and `CONFIG_R8169=m`. Built-in netconsole
+initializes before the modular Realtek NIC driver exists, so a boot argument
+alone cannot establish capture. The current pstore backend is also unset.
+No speculative netconsole boot argument or custom kernel is applied.
+
+The LAN stream removes dependence on Kubernetes and the Omni tunnel, but a
+complete hardware lock can still prevent the final message from being sent.
+Record the physical console during the first GPU boot. More reliable final
+panic capture would require a supported serial console path or a separately
+built kernel with suitable netconsole/NIC configuration.
+
+References: [Talos log forwarding](https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/logging-and-telemetry/logging),
+[KmsgLogConfig](https://docs.siderolabs.com/talos/v1.13/reference/configuration/runtime/kmsglogconfig),
+[Linux 6.18.57 netconsole initialization](https://github.com/gregkh/linux/blob/v6.18.57/drivers/net/netconsole.c).
+
+## Earlier evidence and experiment — 2026-09-07
 
 All three workers report AZW EQ, Ryzen 7 5825U, Barcelo PCI `1002:15e7`,
 BIOS FP656V507 (2024-09-05), Talos 1.13.10 / Linux 6.18.48. They are currently

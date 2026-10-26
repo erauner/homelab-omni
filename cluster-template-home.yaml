@@ -2,7 +2,7 @@
 kind: Cluster
 name: erauner-home                       # Cluster name in Omni
 talos:
-  version: v1.13.10              # Supports ordered service-account issuer lists
+  version: v1.13.12              # CPU-only baseline before the worker2 GPU test
 kubernetes:
   version: 1.35.8                # Substrate certificate API prerequisite; Cilium 1.19.7 supports this minor
 features:
@@ -190,6 +190,7 @@ patches:
 ---
 kind: Machine                           # worker1  → 192.168.1.194
 name: 30467aa4-b8a4-2e43-8591-a8595f97a43c
+locked: true                            # Hold singleton workloads during the first upgrade stage
 patches:
   - name: set-nodename
     inline:
@@ -240,6 +241,7 @@ patches:
 ---
 kind: Machine                           # worker3  → 192.168.1.196
 name: d3945f76-fb6b-c244-9ca3-a8595f9b4f7e
+locked: true                            # Hold singleton workloads during the first upgrade stage
 patches:
   - name: set-nodename
     inline:

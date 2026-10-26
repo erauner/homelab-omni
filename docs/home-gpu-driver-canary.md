@@ -1,7 +1,7 @@
 # Home AMD GPU driver-only canary
 
-Status: **isolated driver-only canary on Talos 1.13.12; acceptance pending
-(2026-10-26)**. The 2026-09-07 GPU canary failed; this retry is experimental.
+Status: **Talos 1.13.12 GPU canary failed; CPU-only recovery pending
+(2026-10-26)**. Both the September and October driver-only retries lost contact.
 Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
@@ -72,6 +72,36 @@ The first gate is successful driver initialization and an isolated idle soak
 of at least 24 hours. No application or GPU load test is part of this rollout.
 Follow the stop/rollback criteria below if the node disconnects or GPU errors
 appear. A successful boot alone does not establish stability.
+
+### Failed retry and retained evidence
+
+PR 39 was merged and synced. Omni confirmed worker2's AMD GPU extension and
+schematic `b0f6147ed4de8943dcbaea1a9af2e9c447cd2210659611021492273042238411`.
+The node booted at approximately 19:41:18 UTC with boot ID
+`9f653b3a-ca91-474b-b46d-d383d8944a01`. The Talos API kernel capture shows
+`Initialized amdgpu 3.64.0` at 19:41:20.872 UTC and successful framebuffer
+initialization. Kubernetes Ready returned shortly afterward.
+
+Last received UDP log: 19:42:22.519 UTC (14:42:22 CDT), a routine successful
+dashboard resource-list request. The last successful ping sample started at
+19:42:22.520; the next sample at 19:42:27.961 failed. The Talos API stopped
+responding and Kubernetes subsequently reported Ready=Unknown. The user also
+observed a frozen physical console. No final panic, SMU timeout or GPU reset
+was captured. This reproduces loss of availability on the new kernel, without
+a GPU application or device-plugin workload; it does not identify the root cause.
+
+The idle acceptance gate failed. Remove the GPU extension/module patch and
+restore the proven CPU-only schematic
+`4d159fd47ebc33ce9c1e17e182bcb5533b688c67e33ec093a5da55618b5c5fda`.
+Retain direct logging, cordon, recovery taint and false GPU labels. The hung
+node cannot apply the rollback until physical recovery restores contact;
+use the verified CPU-only USB rather than assuming a fallback boot entry exists.
+Do not run GPU applications or extend this test to another worker.
+
+An immutable copy of UDP, Talos API and heartbeat logs, kernel build config,
+and a summary of the final records is held privately on the Mac under
+`~/.local/state/homelab-maintenance/talos-11312-20261026/worker2-freeze-20261026T194222Z/`.
+Raw boot logs may contain enrollment credentials and must not be published.
 
 ## Earlier evidence and experiment — 2026-09-07
 

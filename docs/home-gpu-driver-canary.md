@@ -230,8 +230,11 @@ A subsequent photo shows extensive green corruption in the firmware's boot
 selection menu, before Linux or Talos starts. Earlier artifacts were visible
 on responsive CPU-only Talos using the EFI framebuffer. Display corruption
 therefore does not require the running amdgpu driver. Check the display cable,
-input and another display before attributing it to the GPU or shared RAM;
-none of those components has been isolated as the cause. No BIOS flash,
+input and another display before attributing it to the GPU or shared RAM.
+The user subsequently unplugged and reconnected the same HDMI cable and the
+picture became normal. This makes the display connection/negotiation a useful
+lead for the artifacts but does not establish the cause of the fabric reset.
+None of those components has been isolated as the cause. No BIOS flash,
 voltage adjustment or memory test has been performed.
 
 A file comparison found 11 of 15 Renoir/Green Sardine firmware candidates were
@@ -267,10 +270,13 @@ the latest retry captured successful SMU initialization and no final fault.
 Do not enable application workloads or expand to another worker on that basis.
 
 The user selected a shorter isolated GFXOFF comparison instead of a memory
-test. The planned load is `modprobe amdgpu modeset=1 ppfeaturemask=0xfff73fff`:
+test. The load is `modprobe amdgpu modeset=1 ppfeaturemask=0xfff73fff`:
 this clears only `PP_GFXOFF_MASK` (`0x8000`) from the measured Linux default
-`0xfff7bfff`; it does not disable all power management. This test has not yet
-run. First check the newly observed firmware-menu display corruption. Keep
+`0xfff7bfff`; it does not disable all power management. Driver loading began
+at 23:36:43 UTC on Linux boot `f12d20bf-6936-47da-b374-31622711e4dc`.
+SMU and DRM initialized; the actual module mask was verified as `0xfff73fff`,
+with cached `amdgpu_gfxoff=0` and hardware status 2. Idle observation is still
+running; successful initialization does not establish stability. Keep
 the same Linux image, read-only/unmounted NVMe and verified capture; retain
 `nomodeset` and `modprobe.blacklist=amdgpu,radeon`, changing only the hard
 blacklist to `module_blacklist=radeon` for deliberate loading. Record the

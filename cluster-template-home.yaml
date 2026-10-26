@@ -123,7 +123,8 @@ systemExtensions:
 # subsequently rejoined Kubernetes on the CPU-only schematic. Keep both the
 # amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
 # The 2026-09-07 driver-only canary became unreachable shortly after boot.
-# Keep CPU-only while its captured initialization/freeze evidence is investigated.
+# The 2026-10-26 retry uses Talos 1.13.12 with direct LAN crash-log capture.
+# Keep worker2 isolated and amd.com/gpu=false until stability testing passes.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged
 # missing rtl_nic/rtl8168h-2.fw without it. Keep this firmware in the test image.
@@ -153,10 +154,14 @@ patches:
         nodeLabels:
           # Driver-only test: exclude both AMD DeviceConfig selectors.
           amd.com/gpu: "false"
+  - name: kernel-amdgpu
+    file: ./patches/kernel-amdgpu.yaml
 systemExtensions:
   - siderolabs/iscsi-tools
   - siderolabs/util-linux-tools
   - siderolabs/btrfs
+  # Isolated Talos 1.13.12 driver test; keep amd.com/gpu=false.
+  - siderolabs/amdgpu
   - siderolabs/amd-ucode
   - siderolabs/realtek-firmware
 

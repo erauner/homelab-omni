@@ -1,7 +1,7 @@
 # Home AMD GPU driver-only canary
 
-Status: **CPU-only on Talos 1.13.12, isolated for a new test (2026-10-26)**.
-The 2026-09-07 GPU canary failed; GPU enablement has not been repeated yet.
+Status: **isolated driver-only canary on Talos 1.13.12; acceptance pending
+(2026-10-26)**. The 2026-09-07 GPU canary failed; this retry is experimental.
 Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
@@ -10,6 +10,11 @@ workloads and databases have moved to the other workers. The earlier incident
 and maintenance notes below are historical.
 
 ## Crash capture — 2026-10-26
+
+Verified against a CPU-only reboot before GPU enablement: worker2 returned
+Ready with a new boot ID, and the Mac received fresh raw kernel records and
+Talos service messages during startup. The receiver remains active for the
+GPU canary.
 
 The worker2-only `worker2-crash-logging` patch forwards Talos service logs and
 kernel logs directly over the LAN to the Mac at `192.168.1.174:6666/udp`.
@@ -49,6 +54,24 @@ built kernel with suitable netconsole/NIC configuration.
 References: [Talos log forwarding](https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/logging-and-telemetry/logging),
 [KmsgLogConfig](https://docs.siderolabs.com/talos/v1.13/reference/configuration/runtime/kmsglogconfig),
 [Linux 6.18.57 netconsole initialization](https://github.com/gregkh/linux/blob/v6.18.57/drivers/net/netconsole.c).
+
+## Driver retry — 2026-10-26
+
+The user authorized another worker2-only test after the CPU-only capture check.
+Talos 1.13.12 uses Linux 6.18.57, replacing the failed canary's Talos 1.13.10 /
+Linux 6.18.48 baseline. No confirmed fix for this particular freeze has been
+identified. Kubernetes stays at 1.35.8 and BIOS settings stay unchanged.
+
+Add only `siderolabs/amdgpu` and the existing `kernel-amdgpu` module patch to
+worker2. Preserve the CPU-only recovery media, direct logging, recovery taint,
+cordon and `amd.com/gpu=false`. Only DaemonSet pods remain on worker2; active
+databases and storage attachments are on the other workers. Workers1/3 stay
+locked in Omni while this test runs.
+
+The first gate is successful driver initialization and an isolated idle soak
+of at least 24 hours. No application or GPU load test is part of this rollout.
+Follow the stop/rollback criteria below if the node disconnects or GPU errors
+appear. A successful boot alone does not establish stability.
 
 ## Earlier evidence and experiment — 2026-09-07
 

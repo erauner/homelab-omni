@@ -1,7 +1,7 @@
 # Home AMD GPU driver-only canary
 
-Status: **Talos 1.13.12 GPU canary failed; CPU-only recovery pending
-(2026-10-26)**. Both the September and October driver-only retries lost contact.
+Status: **CPU-only Talos 1.13.12 recovered and reboot verified; GPU canary
+failed (2026-10-26)**. Both the September and October driver-only retries lost contact.
 Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
@@ -13,8 +13,8 @@ and maintenance notes below are historical.
 
 Verified against a CPU-only reboot before GPU enablement: worker2 returned
 Ready with a new boot ID, and the Mac received fresh raw kernel records and
-Talos service messages during startup. The receiver remains active for the
-GPU canary.
+Talos service messages during startup. The receiver remains active through
+2026-10-27 19:32 UTC for recovery observation; the GPU canary has ended.
 
 The worker2-only `worker2-crash-logging` patch forwards Talos service logs and
 kernel logs directly over the LAN to the Mac at `192.168.1.174:6666/udp`.
@@ -102,6 +102,97 @@ An immutable copy of UDP, Talos API and heartbeat logs, kernel build config,
 and a summary of the final records is held privately on the Mac under
 `~/.local/state/homelab-maintenance/talos-11312-20261026/worker2-freeze-20261026T194222Z/`.
 Raw boot logs may contain enrollment credentials and must not be published.
+
+## CPU-only recovery — 2026-10-26
+
+The first CPU-only USB boot mounted the existing STATE partition but could
+not load its machine configuration. Read-only inspection from SystemRescue
+found `config.yaml` was zero bytes, with mtime 19:41:33.521 UTC during the GPU
+rollout. Node identity and encryption-salt files remained present. This
+explains the subsequent boot failure; it does not explain the GPU hard lock.
+
+Before repairs, raw STATE (100 MiB), META (1 MiB), and EFI (2,203,058,176 bytes)
+backups were copied to private storage and SHA-256 checked. The NVMe reported
+zero critical warnings, media errors and error-log entries. XFS had pending
+journal updates; normal journal replay followed by a read-only filesystem
+check passed, while the config file remained empty.
+
+The recovery image was SystemRescue 13.02 / Linux 6.18.41-1-lts, booted to RAM
+with amdgpu/radeon blocked. It guarded worker2's hardware UUID, made the NVMe
+read-only initially, and allowed temporary SSH only from the Mac using a
+dedicated key. The following repair preserved the existing files and data:
+
+- Renamed the empty config to `config.yaml.empty-20261026T194133Z` so Talos
+  could enter maintenance mode and receive its configuration again.
+- Moved the failed GPU UKI out of `EFI/Linux` to
+  `EFI/disabled-recovery/Talos-v1.13.12-gpu.efi.disabled`.
+- Kept the original CPU-only `Talos-v1.13.12.efi` unchanged and selected its
+  `@main` profile as the default. The next firmware boot selected the internal
+  Talos entry. No image reinstall or partition reset was performed.
+
+Omni's cached applied-config SHA prevented a full config apply to a machine
+now in maintenance; the API exposes that status as read-only. After confirming
+maintenance mode, no application pods and no attached volumes, the normal
+cluster-assignment removal/re-add path let Omni recreate that status and resend
+its configuration. Omni verified maintenance and skipped reset. The machine
+stayed in the Omni account with the same hardware UUID and Talos node identity;
+the Kubernetes Node object was recreated. The force/account-deletion path was
+not used.
+
+PR 41 makes the recovery NoSchedule taint part of worker2's initial kubelet
+registration. Preserve this taint, the cordon and false GPU labels during the
+investigation. STATE UUID `542d6317-4369-47cf-84d4-1f2a7ab5b289` and EPHEMERAL
+UUID `b3493df4-f617-4541-b2b2-be72e84799c3` were verified unchanged after rejoin.
+The node returned Ready on the CPU-only schematic, all scheduled system pods
+were ready, Cilium/BGP was healthy and all 17 attached Longhorn volumes on the
+other workers were healthy before the persistence reboot. The controlled
+internal-disk reboot then passed: boot ID changed from
+`0536d916-5866-4ce6-9245-0866e801e10e` to
+`d744dddd-780b-4d34-b23d-1fac852ddeea`, Talos and kubelet returned healthy,
+Kubernetes Ready returned, and Omni confirmed maintenance=false with the
+CPU-only schematic and no config error. The cordon and recovery taint persisted;
+no amdgpu/radeon module was loaded. Cilium was OK and BGP to the router was
+established. Direct kernel/service capture resumed after reboot.
+
+The reboot temporarily degraded ten volumes because their worker2 replica
+processes stopped. Longhorn 1.9.1 does not recreate an instance-manager pod
+while its node is cordoned. After verifying the recovery taint remained and no
+application pods were pending, a brief uncordon allowed the instance manager
+and replica rebuilds to finish. All 17 attached volumes returned healthy by
+21:23:54 UTC, and worker2 was re-cordoned. No Longhorn toleration or global
+storage setting was changed. See the [Longhorn controller guard](https://github.com/longhorn/longhorn-manager/blob/v1.9.1/controller/instance_manager_controller.go#L649-L653).
+
+Backups, checksums and repair logs are retained privately at
+`~/.local/state/homelab-maintenance/worker2-live-recovery-20261026/`.
+
+## Next GPU investigation
+
+Keep the node isolated. Worker2 currently hosts Longhorn replicas even though
+no volumes are attached there for applications. Before another GPU test,
+evacuate its replicas and verify healthy replacement copies on the other
+workers; no attached volumes alone is not a sufficient storage safety check.
+Establish kernel-level capture before loading the driver again. SystemRescue has loadable `netconsole.ko`, so it can be configured
+after the Realtek NIC is up. Its firmware package is
+`linux-firmware-amdgpu 20260622-1`; the failed Talos image used
+`amdgpu 20260916-v1.13.12`. These are useful comparison baselines, not a known fix.
+
+The current recovery image uses `module_blacklist=amdgpu,radeon`, which also
+blocks manual loading. A separate diagnostic boot must prevent automatic GPU
+loading while permitting a deliberate load after actual kernel datagram
+capture is verified. This can be a deliberate edit of the live USB boot
+parameters without changing its default recovery entry; keep the internal NVMe
+read-only and do not load the driver automatically. Start with a driver-only
+test, then compare kernel and firmware baselines and vary one documented power-management setting at a time.
+Earlier SMU/gfxoff reports make power management a hypothesis worth testing;
+the latest retry captured successful SMU initialization and no final fault.
+Do not enable application workloads or expand to another worker on that basis.
+
+If a complete lock still prevents final messages, investigate a supported
+hardware serial-console path or a separately built debug kernel with suitable
+netconsole/persistent-crash support. The driver-only failure gives no evidence
+that a Kubernetes upgrade or ROCm application change would fix this lockup.
+See [Linux netconsole](https://docs.kernel.org/networking/netconsole.html) and
+[amdgpu module parameters](https://docs.kernel.org/gpu/amdgpu/module-parameters.html).
 
 ## Earlier evidence and experiment — 2026-09-07
 

@@ -165,6 +165,60 @@ storage setting was changed. See the [Longhorn controller guard](https://github.
 Backups, checksums and repair logs are retained privately at
 `~/.local/state/homelab-maintenance/worker2-live-recovery-20261026/`.
 
+## Linux diagnostic tests — 2026-10-26
+
+Longhorn native replica eviction completed before leaving Talos: worker2 has
+scheduling disabled, eviction requested, and zero replicas, engines or volume
+attachments. Replica rebalancing temporarily filled worker1 below its kubelet
+free-space threshold and caused node-pressure evictions/image garbage
+collection. After the replacement Plex copy finished, an extra local copy was
+removed, disk pressure cleared, essential images were warmed, and the evicted
+Synology CSI DaemonSet pod was recreated. Database, NATS, Mimir and SeaweedFS
+readiness was verified before GPU loading. Keep worker2 excluded from storage
+placement throughout diagnosis.
+
+SystemRescue 13.02 uses Linux 6.18.41-1-lts and AMD firmware package
+20260622-1. Its loadable netconsole was configured after the Realtek NIC came
+up. A real `/dev/kmsg` test packet was received by the Mac on UDP 6667 before
+loading amdgpu. Independent SSH kernel capture and ping/SSH availability
+sampling supplemented that kernel stream. Internal NVMe partitions remained
+read-only and unmounted; no Kubernetes/application GPU workload was running.
+
+The first Linux case used kexec to remove the recovery image's hard module
+blacklist. At 22:10:24 UTC, manual `modprobe amdgpu modeset=1` loaded the driver
+with default power settings and created `/dev/dri/renderD128`. Last successful
+SSH/ping: 22:12:40 UTC; first failed sample: 22:12:45. The console froze. Final
+kernel packets were routine firewall drops, with no captured GPU fault or
+panic. NMI/soft watchdog sysctls were enabled. The default keyboard SysRq mask
+was 16, which did not allow debug dumps, so the unsuccessful keyboard attempt
+is not independent proof of a completely locked kernel.
+
+The cold-boot comparison began at 22:27:51 UTC after the user removed power
+and booted the Samsung through firmware. Same Linux kernel, firmware and
+amdgpu load parameters; keyboard SysRq debugging was explicitly enabled.
+The edited command line contained `nomodeset,radeon` instead of `nomodeset`;
+record this discrepancy. Automatic GPU loading was still prevented by
+`modprobe.blacklist`, and the explicit driver `modeset=1` setting was retained.
+At 22:39 UTC the cold-boot case had exceeded 11 minutes with zero failed
+ping/SSH checks and no captured GPU fault. This is an idle comparison, not
+a stability acceptance or confirmation of the reboot-path hypothesis.
+
+Retained Talos logs also show `kexecPrepare` immediately before the failed
+19:41 GPU boot. This makes the reboot path a candidate for a controlled Talos
+retry. The worker2-only `firmware-reboots` patch disables kernel kexec while
+keeping the CPU-only image. Verify `/proc/sys/kernel/kexec_load_disabled` is 1
+on that CPU baseline before separately restoring the GPU extension. This
+forces a firmware reboot path; it does not remove AC power or establish GPU
+stability. A [Talos maintainer documents the sysctl](https://github.com/siderolabs/talos/issues/13785).
+
+A file comparison found 11 of 15 Renoir/Green Sardine firmware candidates were
+identical between this Linux image and the failed Talos image; four differ.
+This is not an inventory of the exact firmware requests made at runtime, and
+neither the package date nor this comparison identifies the cause.
+
+Raw evidence and per-boot records remain private under
+`~/.local/state/homelab-maintenance/worker2-gpu-diagnostic-20261026/`.
+
 ## Next GPU investigation
 
 Keep the node isolated. Worker2 currently hosts Longhorn replicas even though

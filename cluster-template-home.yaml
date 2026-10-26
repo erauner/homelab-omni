@@ -247,6 +247,12 @@ patches:
         kubelet:
           extraArgs:
             register-with-taints: homelab.dev/recovery=cpu-only:NoSchedule
+  - name: firmware-reboots
+    inline:
+      machine:
+        sysctls:
+          # Test the reboot-path hypothesis before another GPU image rollout.
+          kernel.kexec_load_disabled: "1"
 
 ---
 kind: Machine                           # worker3  → 192.168.1.196

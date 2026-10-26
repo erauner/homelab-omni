@@ -241,6 +241,12 @@ patches:
 
   - name: worker2-crash-logging
     file: ./patches/worker2-crash-logging.yaml
+  - name: recovery-isolation
+    inline:
+      machine:
+        kubelet:
+          extraArgs:
+            register-with-taints: homelab.dev/recovery=cpu-only:NoSchedule
 
 ---
 kind: Machine                           # worker3  → 192.168.1.196

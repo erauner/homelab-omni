@@ -30,8 +30,13 @@ Stages:
    Worker1 currently has little disk-pressure headroom; check actual free space
    and replicas before moving data. Drain each remaining worker separately,
    respecting PDBs, active actors, PVC attachment and audited temporary data.
-5. Apply the same GPU mask/firmware control to workers1/3, upgrade and verify
-   each before unlocking the next. Keep ordinary GPU workloads opt-in until
+5. Upgrade each remaining worker CPU-only to 1.14.5 first while its workloads
+   remain drained and maintenance-tainted. The CPU image already contains the
+   future GPU boot argument; verify firmware-reboot control is active before
+   adding that node's GPU extension/module. This avoids the first GPU boot
+   occurring before ordinary config has been applied (Omni upgrades the OS
+   before applying normal config). Verify each GPU before unlocking the next.
+   Keep ordinary GPU workloads opt-in until
    their device exposure/inference path is tested. The control plane stays
    CPU-only. Finish with all four nodes on the same Talos target.
 

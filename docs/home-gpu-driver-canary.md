@@ -237,6 +237,14 @@ lead for the artifacts but does not establish the cause of the fabric reset.
 None of those components has been isolated as the cause. No BIOS flash,
 voltage adjustment or memory test has been performed.
 
+Both cold Linux baselines also contain one early-boot AMD-Vi
+`INVALID_DEVICE_REQUEST` for `0000:00:01.4`, before manual amdgpu loading.
+That function is absent from the current enumerated PCI tree, so it has not
+been mapped to a device. Preserve this as unresolved firmware/IOMMU evidence;
+its appearance before both trials does not establish that it caused the
+later reset. Do not disable IOMMU or change BIOS settings during this
+single-feature comparison.
+
 A file comparison found 11 of 15 Renoir/Green Sardine firmware candidates were
 identical between this Linux image and the failed Talos image; four differ.
 This is not an inventory of the exact firmware requests made at runtime, and
@@ -275,8 +283,18 @@ this clears only `PP_GFXOFF_MASK` (`0x8000`) from the measured Linux default
 `0xfff7bfff`; it does not disable all power management. Driver loading began
 at 23:36:43 UTC on Linux boot `f12d20bf-6936-47da-b374-31622711e4dc`.
 SMU and DRM initialized; the actual module mask was verified as `0xfff73fff`,
-with cached `amdgpu_gfxoff=0` and hardware status 2. Idle observation is still
-running; successful initialization does not establish stability. Keep
+with cached `amdgpu_gfxoff=0` and hardware status 2. The isolated idle check
+passed at 00:07:26 UTC on October 27 (19:07 CDT on October 26), 30 minutes
+43 seconds after initialization: 361 post-initialization availability
+samples had zero ping, SSH-port or SSH-command failures, and the boot ID
+remained unchanged. No GPU fault or reset was captured. Final temperatures
+were 37–47 C; renderD128 remained present, and internal NVMe partitions stayed
+read-only and unmounted. Logs were snapshotted with SHA-256 hashes.
+
+This is one passing idle comparison against one default cold run that reset
+after about 14 minutes. It supports further GFXOFF investigation, not a
+confirmed root cause or production acceptance. GPU load tests and a Talos
+canary with the same setting have not been performed. Keep
 the same Linux image, read-only/unmounted NVMe and verified capture; retain
 `nomodeset` and `modprobe.blacklist=amdgpu,radeon`, changing only the hard
 blacklist to `module_blacklist=radeon` for deliberate loading. Record the

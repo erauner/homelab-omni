@@ -1,0 +1,13 @@
+# Temporary capture for controlplane1 and workers1/3; worker2 keeps port 6666.
+machine:
+  logging:
+    destinations:
+      - endpoint: udp://192.168.1.174:6668
+        format: json_lines
+        extraTags:
+          capture: home-uniform-talos
+---
+apiVersion: v1alpha1
+kind: KmsgLogConfig
+name: home-maintenance-capture
+url: udp://192.168.1.174:6668

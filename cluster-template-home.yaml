@@ -262,7 +262,7 @@ patches:
       machine:
         kubelet:
           extraArgs:
-            register-with-taints: homelab.dev/recovery=cpu-only:NoSchedule
+            register-with-taints: "" # End recovery registration after the 1.14.5 GPU test.
   - name: firmware-reboots
     inline:
       machine:

@@ -229,7 +229,6 @@ patches:
 ---
 kind: Machine                           # worker2  → 192.168.1.195
 name: 4913bb46-7cd8-2048-84c7-a8595f97a48c
-locked: true # Hold the GPU canary while the control plane is upgraded first.
 # Apply before any early driver auto-load, as well as the module configuration.
 kernelArgs:
   - amdgpu.ppfeaturemask=0xfff73fff

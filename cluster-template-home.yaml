@@ -204,6 +204,14 @@ patches:
 ---
 kind: Machine                           # worker1  → 192.168.1.194
 name: 30467aa4-b8a4-2e43-8591-a8595f97a43c
+# CPU-only 1.14.5 stage must verify firmware reboot control before this image.
+systemExtensions:
+  - siderolabs/iscsi-tools
+  - siderolabs/util-linux-tools
+  - siderolabs/btrfs
+  - siderolabs/amd-ucode
+  - siderolabs/amdgpu
+  - siderolabs/realtek-firmware
 patches:
   - name: set-nodename
     inline:
@@ -224,6 +232,9 @@ patches:
           net.ipv4.conf.default.rp_filter: "0"
           net.ipv4.conf.enp1s0.rp_filter: "0"
           # net.ipv4.conf.cilium_host.rp_filter: "0"
+
+  - name: kernel-amdgpu-no-gfxoff
+    file: ./patches/kernel-amdgpu-no-gfxoff.yaml
 
 ---
 kind: Machine                           # worker2  → 192.168.1.195

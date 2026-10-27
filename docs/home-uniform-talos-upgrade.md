@@ -48,3 +48,37 @@ actor snapshots to make a drain pass.
 Sources: [1.14.5](https://github.com/siderolabs/talos/releases/tag/v1.14.5),
 [support matrix](https://docs.siderolabs.com/talos/v1.14/getting-started/support-matrix),
 [upgrade lifecycle](https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/lifecycle-management/upgrading-talos).
+
+
+## Execution receipt — 2026-10-27 UTC
+
+All four nodes report Talos 1.14.5, kernel 6.18.58 and containerd 2.3.7;
+Kubernetes remains 1.35.8. Omni reports the cluster Ready, four healthy connected
+machines, and completed Talos upgrade state. No worker locks remain. All workers
+use the same GPU schematic 06309d28beb05b2c5d186bd71da3663735b7c1631f90542b7dcc3587b6fdba28,
+with GFXOFF mask 0xfff73fff and firmware reboot control verified. The control
+plane remains on its CPU-only extension set.
+
+The three bounded Qwen3.5-4B Q4_K_M Jobs completed full 33/33 Vulkan offload and
+three GPU plus three CPU requests each. Worker2 v3 completed at 03:09:33 UTC,
+worker1 v1 at 03:55:06, and worker3 v1 at 04:21:16. Workers1/3 each retained one
+boot ID and 31 healthy independent heartbeat samples during their measured run;
+checked kernel logs had no ring timeout, GPU reset, panic or hardware-error
+signature. Test servers exited at completion; these are not permanent inference
+services or proof of long-term stability. The user explicitly waived 24 hours.
+
+Application relocation preserved PVC identities, actor snapshots and chat state.
+Fresh etcd and database archives remain private. Singleton PDBs were restored
+with explicit enablePDB=true; the Nexus service PDB returned to minAvailable=1.
+OnCall followed its existing declarative database hibernation annotation. Normal
+worker scheduling and storage eligibility were restored, as was the default
+Longhorn drain policy. During redistribution a redundant fourth replica briefly
+caused disk pressure on worker3; removing only that extra copy after verifying
+three other RW copies restored headroom. Metrics volumes gained second copies,
+without claim replacement. Background replica balancing continues as needed.
+
+See [the application maintenance receipt](https://github.com/erauner/homelab-k8s/blob/master/docs/home-talos-1145-maintenance.md)
+and [GPU Jobs/results](https://github.com/erauner/homelab-k8s/tree/master/apps/worker2-gpu-canary).
+Raw evidence is private under home-uniform-talos-20261027. Direct capture for
+controlplane1 and workers1/3 is bounded until 2026-10-28T04:24:32Z; worker2's
+receiver ends at 03:15:29Z that day. The Mac must remain on its LAN for UDP capture.

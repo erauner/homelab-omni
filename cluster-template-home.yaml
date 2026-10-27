@@ -2,7 +2,7 @@
 kind: Cluster
 name: erauner-home                       # Cluster name in Omni
 talos:
-  version: v1.14.5               # Rolling upgrade; workers held individually until verified
+  version: v1.14.5               # Uniform home target after rolling OS/GPU verification
 kubernetes:
   version: 1.35.8                # Substrate certificate API prerequisite; Cilium 1.19.7 supports this minor
 features:
@@ -133,8 +133,8 @@ systemExtensions:
 # amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
 # The 2026-09-07 driver-only canary became unreachable shortly after boot.
 # The 2026-10-26 retry also lost network/API contact on Talos 1.13.12.
-# Isolated GFXOFF canary: retain recovery isolation and exclude GPU workloads.
-# Linux passed a 30-minute idle comparison; Talos stability is still unproven.
+# GFXOFF-disabled images passed full-layer Vulkan inference on all workers
+# after the 1.14.5 rollout. Normal scheduling is restored; GPU use stays opt-in.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged
 # missing rtl_nic/rtl8168h-2.fw without it. Keep this firmware in the test image.
@@ -277,7 +277,7 @@ patches:
     inline:
       machine:
         sysctls:
-          # Test the reboot-path hypothesis before another GPU image rollout.
+          # Preserve the firmware reboot path used by the validated GPU images.
           kernel.kexec_load_disabled: "1"
 
 ---

@@ -1,0 +1,8 @@
+# Worker2-only canary: clear PP_GFXOFF_MASK (0x8000) from 0xfff7bfff.
+# Keep the remaining power features at the measured Linux/Talos kernel default.
+machine:
+  kernel:
+    modules:
+      - name: amdgpu
+        parameters:
+          - ppfeaturemask=0xfff73fff

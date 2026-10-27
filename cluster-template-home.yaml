@@ -124,7 +124,8 @@ systemExtensions:
 # amdgpu extension and patches/kernel-amdgpu.yaml out of the normal baseline.
 # The 2026-09-07 driver-only canary became unreachable shortly after boot.
 # The 2026-10-26 retry also lost network/API contact on Talos 1.13.12.
-# Restore CPU-only and keep worker2 isolated while the captured logs are analyzed.
+# Isolated GFXOFF canary: retain recovery isolation and exclude GPU workloads.
+# Linux passed a 30-minute idle comparison; Talos stability is still unproven.
 #
 # The Realtek firmware is also intentional: both RTL8168h/8111h adapters logged
 # missing rtl_nic/rtl8168h-2.fw without it. Keep this firmware in the test image.
@@ -154,11 +155,14 @@ patches:
         nodeLabels:
           # Driver-only test: exclude both AMD DeviceConfig selectors.
           amd.com/gpu: "false"
+  - name: kernel-amdgpu-no-gfxoff
+    file: ./patches/kernel-amdgpu-no-gfxoff.yaml
 systemExtensions:
   - siderolabs/iscsi-tools
   - siderolabs/util-linux-tools
   - siderolabs/btrfs
   - siderolabs/amd-ucode
+  - siderolabs/amdgpu
   - siderolabs/realtek-firmware
 
 #######################################################################
@@ -216,6 +220,9 @@ patches:
 ---
 kind: Machine                           # worker2  → 192.168.1.195
 name: 4913bb46-7cd8-2048-84c7-a8595f97a48c
+# Apply before any early driver auto-load, as well as the module configuration.
+kernelArgs:
+  - amdgpu.ppfeaturemask=0xfff73fff
 patches:
   - name: gvisor-userns-worker2
     file: ./patches/gvisor-userns-workers.yaml

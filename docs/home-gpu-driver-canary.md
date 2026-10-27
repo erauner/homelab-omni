@@ -9,6 +9,44 @@ Worker2 is cordoned with `homelab.dev/recovery=cpu-only:NoSchedule`; normal
 workloads and databases have moved to the other workers. The earlier incident
 and maintenance notes below are historical.
 
+## Talos GFXOFF canary — 2026-10-26
+
+The user authorized carrying the Linux comparison into the real Talos image.
+Worker2 alone gains `siderolabs/amdgpu`, a module configuration setting
+`ppfeaturemask=0xfff73fff`, and the image kernel argument
+`amdgpu.ppfeaturemask=0xfff73fff` so the setting is present for early loading.
+The mask clears only GFXOFF from the measured `0xfff7bfff` default, which is
+also unchanged in the Linux 6.18.57 source used by Talos 1.13.12. Talos remains
+1.13.12 and Kubernetes 1.35.8. Workers1/3 stay locked and CPU-only.
+
+The Linux driver remained responsive with no captured GPU fault when checked
+again after more than 80 minutes. The completed 30-minute comparison below is
+the retained observation interval, not proof of a fix. The Talos kernel and
+firmware differ from Linux, so this is a new canary, not production acceptance.
+
+Before booting back to the internal CPU-only installation, sync the merged
+worker2-only desired configuration and verify Omni has generated a schematic
+containing both the GPU extension and the GFXOFF kernel argument. Preserve the
+cordon, recovery taint, false GPU label, direct log capture, firmware reboots,
+and Longhorn exclusion with zero worker2 replicas/engines/attachments. No
+application GPU workload or storage scheduling is enabled by this change.
+
+After the image transition, verify the actual running mask, GPU binding,
+render device, expected image/kernel, a new boot ID and fresh LAN kernel logs.
+Capture the first idle interval beyond the previous failure time, then retain
+at least 24 hours of idle observation before production acceptance and a
+separate bounded load/transition test. Do not treat Ready as GPU stability.
+
+Rollback through a reviewed CPU-only change: remove the worker2 GPU extension
+and module patch and set its managed `kernelArgs: []` explicitly. Omitting
+`kernelArgs` returns its lifecycle outside template management and will not
+reliably clear the KernelArgs resource. Preserve isolation and storage
+exclusion. If the node is unresponsive, the Samsung GPU-blocked recovery image
+and the private CPU UKI/EFI backup remain the recovery path. Recheck which
+internal EFI entries survive the image transition rather than assuming the
+installer retains a selectable CPU image. Do not reset Talos, reformat storage
+or remove PVCs.
+
 ## Crash capture — 2026-10-26
 
 Verified against a CPU-only reboot before GPU enablement: worker2 returned

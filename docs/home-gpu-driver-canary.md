@@ -1,7 +1,8 @@
 # Home AMD GPU driver-only canary
 
-Status: **CPU-only Talos 1.13.12 recovered and reboot verified; GPU canary
-failed (2026-10-26)**. Both the September and October driver-only retries lost contact.
+Status: **worker2 is running GPU-enabled Talos 1.13.12 with GFXOFF disabled
+in an isolated canary (2026-10-26)**. Earlier default-power driver retries
+failed; load and long-term stability remain unverified.
 Canary: worker2,
 192.168.1.195, machine `4913bb46-7cd8-2048-84c7-a8595f97a48c`.
 It already has a separate machine set, so no membership move is needed.
@@ -12,6 +13,8 @@ and maintenance notes below are historical.
 ## Talos GFXOFF canary — 2026-10-26
 
 The user authorized carrying the Linux comparison into the real Talos image.
+[PR 45](https://github.com/erauner/homelab-omni/pull/45) was merged as
+`7e5840ced6f5cd67614db353bfc7740ba1c561ad` and that exact commit was synced.
 Worker2 alone gains `siderolabs/amdgpu`, a module configuration setting
 `ppfeaturemask=0xfff73fff`, and the image kernel argument
 `amdgpu.ppfeaturemask=0xfff73fff` so the setting is present for early loading.
@@ -31,11 +34,72 @@ cordon, recovery taint, false GPU label, direct log capture, firmware reboots,
 and Longhorn exclusion with zero worker2 replicas/engines/attachments. No
 application GPU workload or storage scheduling is enabled by this change.
 
-After the image transition, verify the actual running mask, GPU binding,
-render device, expected image/kernel, a new boot ID and fresh LAN kernel logs.
-Capture the first idle interval beyond the previous failure time, then retain
-at least 24 hours of idle observation before production acceptance and a
-separate bounded load/transition test. Do not treat Ready as GPU stability.
+The image transition completed: the installer reported success at 01:11:27
+UTC on October 27, and the GPU driver initialized at 01:12:25.795 UTC (20:12
+CDT October 26). Boot ID: `a7fe45e7-c2eb-4e5d-bb58-ce8939208eb9`.
+Omni reports both desired and current schematic
+`06309d28beb05b2c5d186bd71da3663735b7c1631f90542b7dcc3587b6fdba28`.
+The live boot argument and module parameter both contain `0xfff73fff`;
+`1002:15e7` is bound to amdgpu, renderD128 exists (`226:128`), and
+`kernel.kexec_load_disabled` remains 1. SMU initialization succeeded. The
+previous-reset register reports a normal software CF9 reset (`0x00080800`)
+for this intentional firmware reboot, not a new fatal fabric reset flag.
+
+The upgrade cleared the cordon on completion. It was restored at 01:14:06 UTC;
+the recovery taint and false GPU label remained, no GPU allocatable resource
+appeared, and only infrastructure pods were present. Longhorn scheduling is
+still disabled with eviction requested and zero worker2 replicas/engines.
+Do not rely on an existing cordon surviving an automatic upgrade: verify and
+restore it immediately while retaining the recovery taint throughout.
+
+The Mac Talos receiver was restarted at 01:15:29 UTC for a bounded 26-hour
+run through October 28 03:15 UTC, covering the planned first 24-hour canary.
+Logs append to the existing private files; the API stream replays the kernel
+ring buffer on connection. Fresh GPU boot/kernel and service records were
+received before the receiver restart. The Linux netconsole run has ended.
+
+The initial Talos idle observation exceeded 38 minutes before the model
+workload was deployed, with no ping loss, Ready=False/Unknown result, changed
+boot ID or captured GPU fault. One Kubernetes status query failed at 01:19:19
+UTC while ping remained successful; the next query returned Ready with the
+same boot ID. Treat that as an observation gap, not proof of a node failure.
+
+### Bounded application test
+
+[homelab-k8s PR 1809](https://github.com/erauner/homelab-k8s/pull/1809) added a
+home-only, worker2-selected Job with explicit recovery/unschedulable tolerations,
+while leaving the cordon, false GPU label and Longhorn exclusion in place. Its
+privileged container has direct DRM access, a bounded emptyDir and no host root
+mount, service-account token, PVC or public route. The original ROCm deployment
+remains at zero replicas. No other worker receives a GPU image or workload.
+
+The first Job reached model health but stopped at the offload-evidence check:
+default verbosity did not emit the required placement messages. No host fault
+was observed and that run was not accepted. [PR 1810](https://github.com/erauner/homelab-k8s/pull/1810)
+retained detailed logs and required the expected power mask for an explicit v2
+rerun. V2 completed at 02:02:27 UTC with Qwen3.5-4B Q4_K_M:
+
+- Vulkan offloaded 33/33 model layers; the CPU comparison reported 0/33.
+- All three GPU and three CPU OpenAI-compatible requests generated tokens.
+- A request from the Mac through Kubernetes also generated a valid response.
+- Mean generation was about 13.51 tokens/sec on Vulkan versus 11.72 CPU-only
+  with the same model, context 1024, concurrency one and eight CPU threads.
+- GPU busy reached 95%; peak VRAM use was 2.67 GiB. Available host memory stayed
+  above about 22.7 GiB in the retained samples. No host reboot or GPU fault was
+  captured during the test. This small throughput comparison is not an accuracy
+  evaluation or proof of long-term stability.
+
+The bounded server exited and Argo CD returned Synced/Healthy. The completed
+Job and private logs/counters are retained; the local port-forward was stopped.
+Keep normal scheduling and storage placement excluded during the longer idle
+canary. The fact that this test works with GFXOFF disabled is a workaround lead,
+not identification of the original fatal fabric error's cause.
+
+For further retries, verify the actual running mask, GPU binding, render
+device, expected image/kernel, boot ID and fresh LAN kernel logs. Retain at
+least 24 hours of idle observation and repeat bounded load/idle transitions
+before production acceptance. Do not treat Ready or this short inference test
+as long-term GPU stability.
 
 Rollback through a reviewed CPU-only change: remove the worker2 GPU extension
 and module patch and set its managed `kernelArgs: []` explicitly. Omitting
@@ -51,11 +115,12 @@ or remove PVCs.
 
 Verified against a CPU-only reboot before GPU enablement: worker2 returned
 Ready with a new boot ID, and the Mac received fresh raw kernel records and
-Talos service messages during startup. The Talos receiver was restarted at
-23:16 UTC with the refreshed private Talos configuration and a deadline of 2026-10-27 23:16 UTC. The separate Linux
-netconsole receiver was restarted through 2026-10-27 01:16 UTC. Check each
-receiver's status file and fresh packets before relying on it; the earlier
-Talos receiver was no longer running when checked. The GPU canary has ended.
+Talos service messages during startup. For the current GPU canary, the Talos
+receiver was restarted at 2026-10-27 01:15 UTC with the refreshed private Talos
+configuration and a deadline of 2026-10-28 03:15 UTC. The separate Linux
+netconsole receiver expired at 2026-10-27 01:16 UTC. Check status files and
+fresh packets before relying on capture; an earlier Talos receiver was no
+longer running when checked. Raw logs remain private.
 
 The worker2-only `worker2-crash-logging` patch forwards Talos service logs and
 kernel logs directly over the LAN to the Mac at `192.168.1.174:6666/udp`.
@@ -63,7 +128,7 @@ The named `KmsgLogConfig` supplements Omni's existing kernel-log destination.
 This does not change the OS image, Kubernetes version or GPU configuration.
 Remove this temporary patch after the investigation or when the receiver moves.
 
-On the Mac, a user launch agent runs a bounded 24-hour receiver, direct ping
+On the Mac, a user launch agent runs a bounded 26-hour receiver, direct ping
 checks and Kubernetes node checks every five seconds, plus a Talos kernel-log
 stream that reconnects every minute. Logs and status are retained privately in
 `~/.local/state/homelab-maintenance/talos-11312-20261026/`:

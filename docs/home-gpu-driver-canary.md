@@ -42,8 +42,10 @@ and module patch and set its managed `kernelArgs: []` explicitly. Omitting
 `kernelArgs` returns its lifecycle outside template management and will not
 reliably clear the KernelArgs resource. Preserve isolation and storage
 exclusion. If the node is unresponsive, the Samsung GPU-blocked recovery image
-and the retained internal CPU UKI remain the local recovery path; do not reset
-Talos, reformat storage or remove PVCs.
+and the private CPU UKI/EFI backup remain the recovery path. Recheck which
+internal EFI entries survive the image transition rather than assuming the
+installer retains a selectable CPU image. Do not reset Talos, reformat storage
+or remove PVCs.
 
 ## Crash capture — 2026-10-26
 
